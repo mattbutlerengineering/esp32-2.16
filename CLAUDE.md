@@ -74,3 +74,17 @@ All six addresses below were **confirmed on the live board** by an I2C scan
 ## References
 - Product page: https://www.waveshare.com/esp32-s3-touch-amoled-2.16.htm
 - Wiki / docs: https://docs.waveshare.com/ESP32-S3-Touch-AMOLED-2.16
+
+## Agent skills
+
+### Issue tracker
+
+Issues and PRDs live in this repo's GitHub Issues (`mattbutlerengineering/esp32-2.16`), via the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Five canonical triage roles; `ready-for-human` maps to this repo's `needs-human` label. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: one root `CONTEXT.md` + `docs/adr/`. See `docs/agents/domain.md`.
