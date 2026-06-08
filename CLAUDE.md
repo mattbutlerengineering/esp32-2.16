@@ -26,16 +26,20 @@ Read over `/dev/cu.usbmodem2101` from the connected board:
 ### Display & Touch
 - **Panel:** 2.16" AMOLED, 480 × 480, 16.7M colors
 - **Display driver:** CO5300 over **QSPI**
-- **Touch:** CST9220 capacitive controller over **I2C** (addr `0x5A` typ.)
+- **Touch:** CST9220 capacitive controller over **I2C** (addr `0x5A`, verified)
 
 ### Onboard Peripherals (all on the shared I2C bus)
+All six addresses below were **confirmed on the live board** by an I2C scan
+(`i2c_scanner/`, SDA=GPIO15 / SCL=GPIO14, 2026-06-07).
+
 | Component | Part | I2C addr | Notes |
 |-----------|------|----------|-------|
-| PMU / charger | AXP2101 | `0x34` | Battery management + charging |
-| IMU | QMI8658 | `0x6B` | 6-axis (accel + gyro), INT1 on GPIO13 |
-| RTC | PCF85063 | `0x51` | |
+| Touch | CST9220 | `0x5A` | Capacitive touch, QSPI display / I2C touch |
 | Audio codec | ES8311 | `0x18` | Speaker / DAC path |
+| PMU / charger | AXP2101 | `0x34` | Battery management + charging |
 | Mic ADC | ES7210 | `0x40` | Dual-mic array, echo cancellation |
+| RTC | PCF85063 | `0x51` | |
+| IMU | QMI8658 | `0x6B` | 6-axis (accel + gyro), INT1 on GPIO13 |
 
 - **Battery:** 3.7 V Li-ion via MX1.25 connector (charged through AXP2101)
 - **Storage:** microSD (TF) card slot
@@ -54,6 +58,18 @@ Read over `/dev/cu.usbmodem2101` from the connected board:
 - Display work typically uses LVGL on top of the CO5300 QSPI driver.
 - The shared I2C bus means touch, sensors, RTC, PMU, and audio all contend on GPIO14/15 —
   initialize the bus once and share the handle.
+
+### Toolchain (this machine)
+- ESP-IDF **v5.3.2** at `~/esp/esp-idf`; activate with `. ~/esp/esp-idf/export.sh`.
+- `cmake`/`ninja` come from Homebrew (not bundled by IDF here) — required on PATH.
+- Build/flash/monitor a project (target esp32s3):
+  ```
+  . ~/esp/esp-idf/export.sh
+  idf.py set-target esp32s3        # one-time per project
+  idf.py -p /dev/cu.usbmodem2101 flash monitor
+  ```
+- `i2c_scanner/` is a minimal ESP-IDF app that scans the I2C bus and prints the
+  peripheral map above — use it to re-verify hardware after wiring changes.
 
 ## References
 - Product page: https://www.waveshare.com/esp32-s3-touch-amoled-2.16.htm
