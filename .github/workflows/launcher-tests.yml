@@ -8,6 +8,7 @@ on:
       - "launcher/main/motion/**"
       - "launcher/main/audio/**"
       - "launcher/main/settings/**"
+      - "launcher/main/voice/**"
       - "launcher/test/**"
       - ".github/workflows/launcher-tests.yml"
   pull_request:
@@ -17,6 +18,7 @@ on:
       - "launcher/main/motion/**"
       - "launcher/main/audio/**"
       - "launcher/main/settings/**"
+      - "launcher/main/voice/**"
       - "launcher/test/**"
       - ".github/workflows/launcher-tests.yml"
 
