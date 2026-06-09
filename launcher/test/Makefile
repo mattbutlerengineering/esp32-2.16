@@ -1,13 +1,14 @@
 # Host build for the Launcher's pure-logic unit tests (no ESP-IDF required).
 CC ?= cc
-CFLAGS ?= -std=c11 -Wall -Wextra -Werror -I../main/orb -I../main/app -I../main/motion -I../main/audio
+CFLAGS ?= -std=c11 -Wall -Wextra -Werror -I../main/orb -I../main/app -I../main/motion -I../main/audio -I../main/settings
 
-test: orb_fsm_test miniapp_test tilt_test motion_app_test wav_test
+test: orb_fsm_test miniapp_test tilt_test motion_app_test wav_test config_test
 	./orb_fsm_test
 	./miniapp_test
 	./tilt_test
 	./motion_app_test
 	./wav_test
+	./config_test
 
 orb_fsm_test: orb_fsm_test.c ../main/orb/orb_fsm.c ../main/orb/orb_fsm.h
 	$(CC) $(CFLAGS) -o $@ orb_fsm_test.c ../main/orb/orb_fsm.c
@@ -24,7 +25,10 @@ motion_app_test: motion_app_test.c ../main/motion/motion_app.c ../main/motion/ti
 wav_test: wav_test.c ../main/audio/wav.c ../main/audio/wav.h
 	$(CC) $(CFLAGS) -o $@ wav_test.c ../main/audio/wav.c
 
+config_test: config_test.c ../main/settings/config.c ../main/settings/config.h
+	$(CC) $(CFLAGS) -o $@ config_test.c ../main/settings/config.c
+
 clean:
-	rm -f orb_fsm_test miniapp_test tilt_test motion_app_test wav_test
+	rm -f orb_fsm_test miniapp_test tilt_test motion_app_test wav_test config_test
 
 .PHONY: test clean
