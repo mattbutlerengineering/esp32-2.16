@@ -33,3 +33,19 @@ _Avoid_: avatar, blob, face, home screen, wallpaper
 The flagship Mini-app, embodied by the Orb. Captures speech from the mic array,
 gets a spoken response from an AI brain, and plays it back. The board's showpiece.
 _Avoid_: chatbot, agent, Siri/Alexa (as generic nouns), voice app
+
+**Bridge**:
+A small process running on the user's own computer that the device reaches over
+WiFi. It receives captured audio, hands it to the Brain, and returns reply audio.
+Keeps the firmware simple and the Brain swappable.
+_Avoid_: server, relay, proxy, backend
+
+**Brain**:
+The AI service behind the Bridge that turns captured audio into a spoken reply.
+Pluggable: Gemini (free tier) by default, with Claude/Ollama as later swaps.
+_Avoid_: LLM, model, AI, assistant (which is the Mini-app, not the Brain)
+
+**Tap-to-talk**:
+The v1 activation gesture — tap/hold the Orb (or the boot button) to make the
+Voice assistant listen, release to send. Distinct from a future wake word.
+_Avoid_: push-to-talk, press-to-talk, hold-to-talk
