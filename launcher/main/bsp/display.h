@@ -7,6 +7,6 @@
 // Requires the AXP2101 rails to be enabled first.
 esp_err_t display_init(void);
 
-// Draw the Orb placeholder: a filled circle on a dark background, pushed to the
-// panel from a PSRAM framebuffer. Proves the display pipeline end-to-end.
-esp_err_t display_draw_orb(void);
+// Render one frame of the breathing Orb for animation phase `phase` (radians)
+// and push it to the panel. Call repeatedly with an advancing phase to animate.
+esp_err_t display_render_orb(float phase);

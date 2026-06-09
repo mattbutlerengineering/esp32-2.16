@@ -14,6 +14,7 @@
 #include "esp_check.h"
 #include "esp_log.h"
 
+#include <math.h>
 #include <string.h>
 
 static const char *TAG = "display";
@@ -95,18 +96,35 @@ static inline uint16_t rgb565(uint8_t r, uint8_t g, uint8_t b) {
     return (uint16_t)(c << 8 | c >> 8);
 }
 
-esp_err_t display_draw_orb(void) {
+static uint8_t scale8(int base, float gain, float b) {
+    int v = base + (int)(gain * b);
+    if (v < 0) v = 0;
+    if (v > 255) v = 255;
+    return (uint8_t)v;
+}
+
+esp_err_t display_render_orb(float phase) {
     ESP_RETURN_ON_FALSE(s_panel && s_fb, ESP_ERR_INVALID_STATE, TAG, "not initialized");
 
-    const uint16_t bg = rgb565(8, 10, 20);      // near-black, hint of blue
-    const uint16_t orb = rgb565(0, 220, 230);   // bright cyan
+    const uint16_t bg = rgb565(6, 8, 16);  // near-black, hint of blue
+    const float breath = 0.5f + 0.5f * sinf(phase);  // 0..1
+
+    // Breathing cyan: a bright core and a dimmer halo, both pulsing in brightness.
+    const uint16_t core = rgb565(0, scale8(110, 140.0f, breath), scale8(120, 130.0f, breath));
+    const uint16_t halo = rgb565(0, scale8(30, 60.0f, breath), scale8(36, 70.0f, breath));
+
     const int cx = LCD_WIDTH / 2, cy = LCD_HEIGHT / 2;
-    const int r2 = 150 * 150;
+    const int radius = 128 + (int)(22.0f * sinf(phase));  // breathing size
+    const int r2 = radius * radius;
+    const int core2 = (int)(radius * 0.6f) * (int)(radius * 0.6f);
 
     for (int y = 0; y < LCD_HEIGHT; y++) {
+        int dy = y - cy;
+        uint16_t *row = &s_fb[y * LCD_WIDTH];
         for (int x = 0; x < LCD_WIDTH; x++) {
-            int dx = x - cx, dy = y - cy;
-            s_fb[y * LCD_WIDTH + x] = (dx * dx + dy * dy <= r2) ? orb : bg;
+            int dx = x - cx;
+            int d2 = dx * dx + dy * dy;
+            row[x] = (d2 <= core2) ? core : (d2 <= r2) ? halo : bg;
         }
     }
 
