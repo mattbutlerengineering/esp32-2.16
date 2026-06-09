@@ -5,12 +5,14 @@ on:
     paths:
       - "launcher/main/orb/**"
       - "launcher/main/app/**"
+      - "launcher/main/motion/**"
       - "launcher/test/**"
       - ".github/workflows/launcher-tests.yml"
   pull_request:
     paths:
       - "launcher/main/orb/**"
       - "launcher/main/app/**"
+      - "launcher/main/motion/**"
       - "launcher/test/**"
       - ".github/workflows/launcher-tests.yml"
 
