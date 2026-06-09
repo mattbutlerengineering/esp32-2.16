@@ -4,11 +4,13 @@ on:
   push:
     paths:
       - "launcher/main/orb/**"
+      - "launcher/main/app/**"
       - "launcher/test/**"
       - ".github/workflows/launcher-tests.yml"
   pull_request:
     paths:
       - "launcher/main/orb/**"
+      - "launcher/main/app/**"
       - "launcher/test/**"
       - ".github/workflows/launcher-tests.yml"
 
