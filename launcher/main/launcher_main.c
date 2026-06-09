@@ -13,6 +13,7 @@
 
 #include "bsp/board_config.h"
 #include "bsp/pmic_axp2101.h"
+#include "bsp/display.h"
 
 static const char *TAG = "launcher";
 
@@ -40,11 +41,13 @@ void app_main(void)
     // Power foundation: nothing displays or plays until the AXP2101 rails are on.
     ESP_ERROR_CHECK(axp2101_power_on(i2c_bus));
 
-    // TODO(#2): CO5300 display + LVGL bring-up (QSPI pins in board_config.h).
-    // TODO(#2): CST9217 touch (#4), ES8311/ES7210 audio (#6).
-    // TODO(#4): Orb home Mini-app + Mini-app registry/swipe nav.
+    // Bring up the CO5300 AMOLED and draw the Orb placeholder.
+    ESP_ERROR_CHECK(display_init());
+    ESP_ERROR_CHECK(display_draw_orb());
+    ESP_LOGI(TAG, "Orb drawn on the AMOLED");
 
-    ESP_LOGI(TAG, "scaffold up; display/touch/audio bring-up pending (see TODOs)");
+    // TODO(#2): LVGL on top of the CO5300; CST9217 touch (#4); ES8311/ES7210 audio (#6).
+    // TODO(#4): Orb home Mini-app + Mini-app registry/swipe nav.
     while (1) {
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
