@@ -4,6 +4,10 @@ CONFIG_IDF_TARGET="esp32s3"
 # Flash
 CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y
 
+# Custom partition table — 3 MB app partition (WiFi+HTTP+TLS overflow the 1 MB default)
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
+
 # Octal PSRAM (R8) — LVGL framebuffer lives here
 CONFIG_SPIRAM=y
 CONFIG_SPIRAM_MODE_OCT=y

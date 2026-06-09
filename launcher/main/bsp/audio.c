@@ -105,30 +105,40 @@ esp_err_t audio_init(i2c_master_bus_handle_t bus)
     s_mic = esp_codec_dev_new(&mic_dev);
     ESP_RETURN_ON_FALSE(s_mic, ESP_FAIL, TAG, "mic dev");
 
-    esp_codec_dev_sample_info_t fs = {
+    // Devices are opened per record/play call (see below) so the speaker can run
+    // at the reply's rate while the mic captures at AUDIO_RATE_HZ — they share
+    // one I2S clock, so only one direction is active (and clocked) at a time.
+    ESP_LOGI(TAG, "ES8311 + ES7210 up (mono, PA=GPIO%d)", AUDIO_PA_GPIO);
+    return ESP_OK;
+}
+
+static esp_codec_dev_sample_info_t mono_fs(uint32_t rate)
+{
+    return (esp_codec_dev_sample_info_t){
         .bits_per_sample = AUDIO_BITS,
         .channel = 1,
-        .sample_rate = AUDIO_RATE_HZ,
+        .sample_rate = rate,
     };
-    ESP_RETURN_ON_FALSE(esp_codec_dev_open(s_spk, &fs) == 0, ESP_FAIL, TAG, "spk open");
-    ESP_RETURN_ON_FALSE(esp_codec_dev_open(s_mic, &fs) == 0, ESP_FAIL, TAG, "mic open");
-    esp_codec_dev_set_out_vol(s_spk, 82);      // 0..100, clean level
-    esp_codec_dev_set_in_gain(s_mic, 30.0f);   // dB
-
-    ESP_LOGI(TAG, "ES8311 + ES7210 up (%d Hz mono, PA=GPIO%d)", AUDIO_RATE_HZ, AUDIO_PA_GPIO);
-    return ESP_OK;
 }
 
 esp_err_t audio_record(int16_t *buf, size_t frames)
 {
     ESP_RETURN_ON_FALSE(s_mic && buf, ESP_ERR_INVALID_STATE, TAG, "mic not ready");
+    esp_codec_dev_sample_info_t fs = mono_fs(AUDIO_RATE_HZ);
+    ESP_RETURN_ON_FALSE(esp_codec_dev_open(s_mic, &fs) == 0, ESP_FAIL, TAG, "mic open");
+    esp_codec_dev_set_in_gain(s_mic, 30.0f);  // dB
     int ret = esp_codec_dev_read(s_mic, buf, (int)(frames * sizeof(int16_t)));
+    esp_codec_dev_close(s_mic);
     return ret == 0 ? ESP_OK : ESP_FAIL;
 }
 
-esp_err_t audio_play(const int16_t *buf, size_t frames)
+esp_err_t audio_play(const int16_t *buf, size_t frames, uint32_t sample_rate)
 {
     ESP_RETURN_ON_FALSE(s_spk && buf, ESP_ERR_INVALID_STATE, TAG, "spk not ready");
+    esp_codec_dev_sample_info_t fs = mono_fs(sample_rate);
+    ESP_RETURN_ON_FALSE(esp_codec_dev_open(s_spk, &fs) == 0, ESP_FAIL, TAG, "spk open");
+    esp_codec_dev_set_out_vol(s_spk, 82);  // 0..100, clean level
     int ret = esp_codec_dev_write(s_spk, (void *)buf, (int)(frames * sizeof(int16_t)));
+    esp_codec_dev_close(s_spk);
     return ret == 0 ? ESP_OK : ESP_FAIL;
 }
