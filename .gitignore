@@ -5,5 +5,12 @@ sdkconfig.old
 managed_components/
 dependencies.lock
 
+# Python (bridge/)
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
+
 # macOS
 .DS_Store
