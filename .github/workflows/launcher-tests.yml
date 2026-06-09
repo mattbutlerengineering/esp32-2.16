@@ -6,6 +6,7 @@ on:
       - "launcher/main/orb/**"
       - "launcher/main/app/**"
       - "launcher/main/motion/**"
+      - "launcher/main/audio/**"
       - "launcher/test/**"
       - ".github/workflows/launcher-tests.yml"
   pull_request:
@@ -13,6 +14,7 @@ on:
       - "launcher/main/orb/**"
       - "launcher/main/app/**"
       - "launcher/main/motion/**"
+      - "launcher/main/audio/**"
       - "launcher/test/**"
       - ".github/workflows/launcher-tests.yml"
 
