@@ -1,0 +1,22 @@
+name: launcher-tests
+
+on:
+  push:
+    paths:
+      - "launcher/main/orb/**"
+      - "launcher/test/**"
+      - ".github/workflows/launcher-tests.yml"
+  pull_request:
+    paths:
+      - "launcher/main/orb/**"
+      - "launcher/test/**"
+      - ".github/workflows/launcher-tests.yml"
+
+jobs:
+  orb-fsm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and run host unit tests
+        working-directory: launcher/test
+        run: make
