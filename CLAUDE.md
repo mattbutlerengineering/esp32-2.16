@@ -34,7 +34,7 @@ All six addresses below were **confirmed on the live board** by an I2C scan
 
 | Component | Part | I2C addr | Notes |
 |-----------|------|----------|-------|
-| Touch | CST9220 | `0x5A` | Capacitive touch, QSPI display / I2C touch |
+| Touch | CST9217 | `0x5A` | Capacitive touch (driver: CST9217, not CST9220) |
 | Audio codec | ES8311 | `0x18` | Speaker / DAC path |
 | PMU / charger | AXP2101 | `0x34` | Battery management + charging |
 | Mic ADC | ES7210 | `0x40` | Dual-mic array, echo cancellation |
@@ -44,13 +44,21 @@ All six addresses below were **confirmed on the live board** by an I2C scan
 - **Battery:** 3.7 V Li-ion via MX1.25 connector (charged through AXP2101)
 - **Storage:** microSD (TF) card slot
 
-### Key GPIO
-- **I2C bus:** SDA = **GPIO15**, SCL = **GPIO14** (shared by touch, PMU, IMU, RTC, codecs)
-- **IMU INT1:** GPIO13
-- **Buttons:** BOOT = GPIO0, custom user button = GPIO18, PWR button (via PMU)
+### GPIO / pin map
+Full pin map, extracted from the xiaozhi-esp32 board file for this exact board
+(`main/boards/waveshare/esp32-s3-touch-amoled-2.16/config.h`) and mirrored in
+`launcher/main/bsp/board_config.h`. **Confirm against the physical board** before
+relying on it (issue #2 is HITL for this reason).
 
-> Verify exact pins against the board schematic before wiring — display QSPI / I2S audio
-> pins are not all listed here. Source the schematic from the Waveshare wiki.
+- **I2C bus:** SDA = **GPIO15**, SCL = **GPIO14** (shared: touch, PMU, IMU, RTC, codecs)
+- **Display (CO5300, QSPI):** CS=12, PCLK=38, D0=4, D1=5, D2=6, D3=7, RST=39; no backlight pin (brightness via panel cmd `0x51`)
+- **Touch (CST9217):** RST=40, INT=11
+- **Audio (I2S, 24 kHz mono):** MCLK=42, WS=45, BCLK=9, DIN=10 (mic/ES7210), DOUT=8 (codec/ES8311), PA-enable=46
+- **Buttons:** BOOT = GPIO0; Waveshare docs also mention a user button on GPIO18 (unverified)
+
+> Caveat: the reference also initializes a TCA9554 I2C IO-expander (`0x20`), but
+> `i2c_scanner` did NOT detect `0x20` on this board. Confirm on hardware whether
+> this revision has the expander before routing reset/enable lines through it.
 
 ## Development
 
