@@ -1,0 +1,7 @@
+# Partition table for the Orb Launcher (16 MB flash). The app grew past the
+# default 1 MB once WiFi + HTTP + TLS landed, so give it a roomy 3 MB factory
+# partition with plenty of headroom for OTA/audio buffers later.
+# Name,     Type, SubType,  Offset,   Size
+nvs,        data, nvs,      0x9000,   0x6000
+phy_init,   data, phy,      0xf000,   0x1000
+factory,    app,  factory,  0x10000,  0x300000

@@ -16,10 +16,13 @@
 // Requires the AXP2101 rails enabled first. Enables the speaker PA (GPIO46).
 esp_err_t audio_init(i2c_master_bus_handle_t bus);
 
-// Capture exactly `frames` mono 16-bit samples from the mics into `buf`
-// (blocking until the buffer is full). `buf` must hold frames*2 bytes.
+// Capture exactly `frames` mono 16-bit samples from the mics into `buf` at
+// AUDIO_RATE_HZ (blocking until the buffer is full). `buf` must hold frames*2
+// bytes. Opens the mic for the duration of the call and closes it after.
 esp_err_t audio_record(int16_t *buf, size_t frames);
 
-// Play `frames` mono 16-bit samples from `buf` through the speaker (blocking
-// until the buffer has been pushed to the codec).
-esp_err_t audio_play(const int16_t *buf, size_t frames);
+// Play `frames` mono 16-bit samples from `buf` through the speaker at
+// `sample_rate` Hz (blocking). The rate is a parameter because the Bridge's
+// reply (24 kHz) differs from the capture rate (16 kHz), and the codecs share
+// one I2S clock — so the speaker is (re)opened at the right rate per call.
+esp_err_t audio_play(const int16_t *buf, size_t frames, uint32_t sample_rate);
