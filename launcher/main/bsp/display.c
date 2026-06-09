@@ -96,22 +96,43 @@ static inline uint16_t rgb565(uint8_t r, uint8_t g, uint8_t b) {
     return (uint16_t)(c << 8 | c >> 8);
 }
 
-static uint8_t scale8(int base, float gain, float b) {
-    int v = base + (int)(gain * b);
+// Scale a colour channel by brightness factor k (0..~1), clamped to 8-bit.
+static inline uint8_t dim(uint8_t c, float k) {
+    int v = (int)(c * k);
     if (v < 0) v = 0;
     if (v > 255) v = 255;
     return (uint8_t)v;
 }
 
-esp_err_t display_render_orb(float phase) {
+typedef struct { uint8_t r, g, b; } rgb_t;
+
+// Base core + halo colour for each Orb state. Brightness still breathes; the
+// hue is what distinguishes idle / listening / thinking / speaking / error.
+static void orb_palette(OrbState state, rgb_t *core, rgb_t *halo) {
+    switch (state) {
+    case ORB_LISTENING: *core = (rgb_t){ 40, 230,  90}; *halo = (rgb_t){10, 70, 26}; break; // green
+    case ORB_THINKING:  *core = (rgb_t){240, 180,  30}; *halo = (rgb_t){70, 50,  8}; break; // amber
+    case ORB_SPEAKING:  *core = (rgb_t){ 70, 120, 250}; *halo = (rgb_t){18, 32, 76}; break; // blue
+    case ORB_ERROR:     *core = (rgb_t){240,  50,  50}; *halo = (rgb_t){70, 12, 12}; break; // red
+    case ORB_IDLE:
+    default:            *core = (rgb_t){  0, 200, 220}; *halo = (rgb_t){ 0, 60, 70}; break; // cyan
+    }
+}
+
+esp_err_t display_render_orb(OrbState state, float phase) {
     ESP_RETURN_ON_FALSE(s_panel && s_fb, ESP_ERR_INVALID_STATE, TAG, "not initialized");
 
     const uint16_t bg = rgb565(6, 8, 16);  // near-black, hint of blue
     const float breath = 0.5f + 0.5f * sinf(phase);  // 0..1
 
-    // Breathing cyan: a bright core and a dimmer halo, both pulsing in brightness.
-    const uint16_t core = rgb565(0, scale8(110, 140.0f, breath), scale8(120, 130.0f, breath));
-    const uint16_t halo = rgb565(0, scale8(30, 60.0f, breath), scale8(36, 70.0f, breath));
+    rgb_t cp, hp;
+    orb_palette(state, &cp, &hp);
+
+    // Breathing: a bright core and a dimmer halo, both pulsing in brightness.
+    const float kc = 0.55f + 0.45f * breath;
+    const float kh = 0.40f + 0.55f * breath;
+    const uint16_t core = rgb565(dim(cp.r, kc), dim(cp.g, kc), dim(cp.b, kc));
+    const uint16_t halo = rgb565(dim(hp.r, kh), dim(hp.g, kh), dim(hp.b, kh));
 
     const int cx = LCD_WIDTH / 2, cy = LCD_HEIGHT / 2;
     const int radius = 128 + (int)(22.0f * sinf(phase));  // breathing size
