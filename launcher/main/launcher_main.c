@@ -21,6 +21,7 @@
 #include "bsp/display.h"
 #include "bsp/touch_cst9217.h"
 #include "bsp/audio.h"
+#include "bsp/wifi.h"
 #include "orb/orb_fsm.h"
 
 static const char *TAG = "launcher";
@@ -106,6 +107,12 @@ void app_main(void)
     ESP_ERROR_CHECK(display_init());
     ESP_ERROR_CHECK(touch_init(i2c_bus));
     ESP_ERROR_CHECK(audio_init(i2c_bus));
+
+    // WiFi is best-effort: if it can't connect, the Orb still runs the offline
+    // echo loopback. The Bridge round-trip (#9) uses it when connected.
+    if (wifi_start() != ESP_OK) {
+        ESP_LOGW(TAG, "WiFi unavailable — offline echo loopback only");
+    }
 
     s_rec = heap_caps_malloc(RECORD_FRAMES * sizeof(int16_t), MALLOC_CAP_SPIRAM);
     ESP_ERROR_CHECK(s_rec ? ESP_OK : ESP_ERR_NO_MEM);

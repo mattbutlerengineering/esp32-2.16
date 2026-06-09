@@ -1,0 +1,24 @@
+menu "Orb Configuration"
+
+config ORB_WIFI_SSID
+    string "WiFi SSID"
+    default ""
+    help
+        WiFi network the Orb joins to reach the Bridge. Leave blank to stay
+        offline (the device falls back to the local audio echo loopback).
+        Seeded into NVS on first boot; later changes here re-seed NVS.
+
+config ORB_WIFI_PASSWORD
+    string "WiFi password"
+    default ""
+    help
+        Password for the WiFi network above. Stored in NVS, never in source.
+
+config ORB_BRIDGE_URL
+    string "Bridge base URL"
+    default "http://192.168.1.100:8080"
+    help
+        Base URL of the Gemini Bridge. The device POSTs captured audio to
+        <url>/talk and plays back the spoken reply.
+
+endmenu
