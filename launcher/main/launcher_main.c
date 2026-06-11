@@ -1,108 +1,74 @@
 // Launcher firmware entry point for the ESP32-S3-Touch-AMOLED-2.16.
 //
 // Brings up the foundation — shared I2C bus, AXP2101 rails, CO5300 AMOLED,
-// CST9217 touch, ES8311/ES7210 audio, WiFi — then runs the interactive Orb.
-// A tap starts one tap-to-talk cycle, orchestrated by the voice-session
-// coordinator (#9): record the user's speech, POST it to the Gemini Bridge,
-// and play back the spoken reply, driving the Orb FSM through listening ->
-// thinking -> speaking -> idle (or -> error on failure, dismissed by a tap).
+// CST9217 touch, QMI8658 IMU — then runs the Mini-app registry (#4) with the
+// Ambient visualization as the foreground Mini-app: a tilt-warped plasma orb
+// that breathes, follows the board's tilt, and ripples where you touch it.
+//
+// The voice-assistant path (audio, WiFi, Bridge client, voice session) still
+// builds and is host-tested, but is no longer wired into the main loop — the
+// project pivoted to the visualization demo. Re-register it as a Mini-app to
+// bring it back.
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "driver/i2c_master.h"
-#include "esp_heap_caps.h"
 #include "esp_log.h"
 
 #include "bsp/board_config.h"
 #include "bsp/pmic_axp2101.h"
 #include "bsp/display.h"
 #include "bsp/touch_cst9217.h"
-#include "bsp/audio.h"
-#include "bsp/wifi.h"
-#include "net/bridge_client.h"
-#include "audio/wav.h"
-#include "voice/voice_session.h"
-#include "orb/orb_fsm.h"
-
-#include <stdlib.h>
+#include "bsp/imu_qmi8658.h"
+#include "app/miniapp.h"
+#include "app/ambient_app.h"
 
 static const char *TAG = "launcher";
 
-#define RECORD_SECONDS 3
-#define RECORD_FRAMES  (AUDIO_RATE_HZ * RECORD_SECONDS)
+#define FRAME_MS 33  // ~30 FPS
+#define FRAME_DT ((float)FRAME_MS / 1000.0f)
 
-static int16_t *s_rec = NULL;  // PSRAM capture buffer
+static AmbientApp s_ambient;
 
-// Per-session state shared with the voice-session seam callbacks.
-typedef struct {
-    size_t   captured;    // frames captured this cycle
-    uint8_t *reply;       // downloaded reply WAV (freed after playback)
-    size_t   reply_len;
-    float    phase;       // animation phase frozen for this cycle's renders
-} VoiceCtx;
+// --- board reads -> Ambient app seams ---
 
-// Parse a canonical 44-byte RIFF/PCM WAV (as the Bridge produces): sample rate
-// at offset 24, PCM data at offset 44. Returns false if too short.
-static bool parse_wav(const uint8_t *wav, size_t len,
-                      const int16_t **pcm, size_t *frames, uint32_t *rate)
-{
-    if (len <= WAV_HEADER_SIZE) {
-        return false;
-    }
-    uint32_t r = wav[24] | (wav[25] << 8) | (wav[26] << 16) | ((uint32_t)wav[27] << 24);
-    if (r == 0) {
-        return false;
-    }
-    *rate = r;
-    *pcm = (const int16_t *)(wav + WAV_HEADER_SIZE);
-    *frames = (len - WAV_HEADER_SIZE) / sizeof(int16_t);
-    return true;
+static bool touch_seam(void *ctx, uint16_t *x, uint16_t *y) {
+    (void)ctx;
+    return touch_poll(x, y);
 }
 
-// --- voice-session seams (run while the FSM is in the matching state) ---
-
-static Audio rec_seam(void *c)
-{
-    VoiceCtx *v = c;
-    display_render_orb(ORB_LISTENING, v->phase);  // green
-    ESP_LOGI(TAG, "listening: recording %d s", RECORD_SECONDS);
-    audio_record(s_rec, RECORD_FRAMES);
-    v->captured = RECORD_FRAMES;
-    return (Audio){ .data = (const uint8_t *)s_rec, .len = v->captured * sizeof(int16_t) };
+static void imu_seam(void *ctx, float *ax, float *ay) {
+    (void)ctx;
+    imu_read_accel(ax, ay);
 }
 
-static BridgeReply send_seam(void *c, Audio captured)
-{
-    VoiceCtx *v = c;
-    (void)captured;  // we POST straight from the capture buffer
-    display_render_orb(ORB_THINKING, v->phase);  // amber
-    if (!wifi_is_connected()) {
-        ESP_LOGW(TAG, "thinking: WiFi not connected — cannot reach the Bridge");
-        return (BridgeReply){ .ok = false };
-    }
-    ESP_LOGI(TAG, "thinking: POSTing %u frames to the Bridge", (unsigned)v->captured);
-    if (bridge_talk(s_rec, v->captured, AUDIO_RATE_HZ, &v->reply, &v->reply_len) != ESP_OK) {
-        return (BridgeReply){ .ok = false };
-    }
-    return (BridgeReply){ .ok = true, .audio = { .data = v->reply, .len = v->reply_len } };
+// --- Mini-app lifecycle callbacks ---
+
+static void ambient_enter(void *ctx) {
+    (void)ctx;
+    ESP_LOGI(TAG, "ambient orb active — touch for ripples, tilt to steer");
 }
 
-static void play_seam(void *c, Audio reply)
-{
-    VoiceCtx *v = c;
-    display_render_orb(ORB_SPEAKING, v->phase);  // blue
-    const int16_t *pcm = NULL;
-    size_t frames = 0;
-    uint32_t rate = 0;
-    if (parse_wav(reply.data, reply.len, &pcm, &frames, &rate)) {
-        ESP_LOGI(TAG, "speaking: playing %u frames @ %u Hz", (unsigned)frames, (unsigned)rate);
-        audio_play(pcm, frames, rate);
-    } else {
-        ESP_LOGE(TAG, "speaking: malformed reply WAV (%u bytes)", (unsigned)reply.len);
-    }
-    free(v->reply);
-    v->reply = NULL;
+static void ambient_tick_cb(void *ctx) {
+    ambient_app_tick(ctx, FRAME_DT);
 }
+
+static void ambient_render_cb(void *ctx) {
+    uint16_t *fb = display_framebuffer();
+    if (fb == NULL) {
+        return;  // display not up; nothing to draw into
+    }
+    ambient_render(ambient_app_ambient(ctx), fb, LCD_WIDTH, LCD_HEIGHT);
+    display_flush();
+}
+
+static const MiniApp k_ambient_miniapp = {
+    .name = "ambient",
+    .on_enter = ambient_enter,
+    .on_tick = ambient_tick_cb,
+    .render = ambient_render_cb,
+    .ctx = &s_ambient,
+};
 
 static esp_err_t i2c_bus_init(i2c_master_bus_handle_t *out_bus)
 {
@@ -125,56 +91,28 @@ void app_main(void)
     ESP_ERROR_CHECK(i2c_bus_init(&i2c_bus));
     ESP_LOGI(TAG, "shared I2C bus up (SDA=%d SCL=%d)", BOARD_I2C_SDA_GPIO, BOARD_I2C_SCL_GPIO);
 
-    // Power foundation: nothing displays or plays until the AXP2101 rails are on.
+    // Power foundation: nothing displays until the AXP2101 rails are on.
     ESP_ERROR_CHECK(axp2101_power_on(i2c_bus));
 
-    // Bring up display, touch, and audio (all on the shared I2C bus).
     ESP_ERROR_CHECK(display_init());
     ESP_ERROR_CHECK(touch_init(i2c_bus));
-    ESP_ERROR_CHECK(audio_init(i2c_bus));
 
-    // WiFi is best-effort. Without it the Bridge is unreachable and a tap ends
-    // in the error state (red); the device still boots and animates.
-    if (wifi_start() != ESP_OK) {
-        ESP_LOGW(TAG, "WiFi unavailable — voice replies need the Bridge");
+    // IMU is best-effort: without it the field stays level (no tilt warp).
+    if (imu_init(i2c_bus) != ESP_OK) {
+        ESP_LOGW(TAG, "IMU unavailable — ambient field won't react to tilt");
     }
 
-    s_rec = heap_caps_malloc(RECORD_FRAMES * sizeof(int16_t), MALLOC_CAP_SPIRAM);
-    ESP_ERROR_CHECK(s_rec ? ESP_OK : ESP_ERR_NO_MEM);
-    ESP_LOGI(TAG, "interactive Orb ready — tap to talk");
+    ambient_app_init(&s_ambient, touch_seam, NULL, imu_seam, NULL,
+                     LCD_WIDTH, LCD_HEIGHT);
 
-    // TODO(#4): Orb home Mini-app + Mini-app registry/swipe nav.
-
-    VoiceCtx vctx = {0};
-    VoiceSession vs;
-    voice_session_init(&vs, rec_seam, send_seam, play_seam, &vctx);
-
-    float phase = 0.0f;
-    bool was_touched = false;
+    static MiniAppRegistry s_registry;
+    miniapp_registry_init(&s_registry);
+    const int idx = miniapp_register(&s_registry, &k_ambient_miniapp);
+    ESP_ERROR_CHECK(idx >= 0 ? ESP_OK : ESP_FAIL);
+    miniapp_set_active(&s_registry, idx);
 
     while (1) {
-        uint16_t tx = 0, ty = 0;
-        const bool touched = touch_poll(&tx, &ty);
-        const bool tap = touched && !was_touched;
-        was_touched = touched;
-
-        const OrbState st = voice_session_state(&vs);
-        if (tap && st == ORB_IDLE) {
-            ESP_LOGI(TAG, "tap (%u,%u)", tx, ty);
-            vctx.phase = phase;
-            voice_session_tap(&vs);                       // -> listening
-            if (voice_session_release(&vs) == ORB_ERROR) { // record -> send -> play
-                ESP_LOGW(TAG, "voice cycle failed — tap to dismiss");
-            }
-            was_touched = false;  // ignore contact left over from the cycle
-        } else if (tap && st == ORB_ERROR) {
-            ESP_LOGI(TAG, "dismissing error");
-            voice_session_init(&vs, rec_seam, send_seam, play_seam, &vctx);  // -> idle
-            was_touched = false;
-        }
-
-        display_render_orb(voice_session_state(&vs), phase);  // idle breathing / error linger
-        phase += 0.12f;  // ~2.6s per breath at this frame rate
-        vTaskDelay(pdMS_TO_TICKS(33));
+        miniapp_tick(&s_registry);
+        vTaskDelay(pdMS_TO_TICKS(FRAME_MS));
     }
 }

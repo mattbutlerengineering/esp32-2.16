@@ -2,7 +2,7 @@
 CC ?= cc
 CFLAGS ?= -std=c11 -Wall -Wextra -Werror -I../main/orb -I../main/app -I../main/motion -I../main/audio -I../main/settings -I../main/voice
 
-test: orb_fsm_test miniapp_test tilt_test motion_app_test wav_test config_test voice_session_test
+test: orb_fsm_test miniapp_test tilt_test motion_app_test wav_test config_test voice_session_test ambient_test ambient_app_test
 	./orb_fsm_test
 	./miniapp_test
 	./tilt_test
@@ -10,6 +10,8 @@ test: orb_fsm_test miniapp_test tilt_test motion_app_test wav_test config_test v
 	./wav_test
 	./config_test
 	./voice_session_test
+	./ambient_test
+	./ambient_app_test
 
 orb_fsm_test: orb_fsm_test.c ../main/orb/orb_fsm.c ../main/orb/orb_fsm.h
 	$(CC) $(CFLAGS) -o $@ orb_fsm_test.c ../main/orb/orb_fsm.c
@@ -32,7 +34,13 @@ config_test: config_test.c ../main/settings/config.c ../main/settings/config.h
 voice_session_test: voice_session_test.c ../main/voice/voice_session.c ../main/orb/orb_fsm.c ../main/voice/voice_session.h ../main/orb/orb_fsm.h
 	$(CC) $(CFLAGS) -o $@ voice_session_test.c ../main/voice/voice_session.c ../main/orb/orb_fsm.c
 
+ambient_test: ambient_test.c ../main/app/ambient.c ../main/app/ambient.h
+	$(CC) $(CFLAGS) -o $@ ambient_test.c ../main/app/ambient.c -lm
+
+ambient_app_test: ambient_app_test.c ../main/app/ambient_app.c ../main/app/ambient.c ../main/app/ambient_app.h ../main/app/ambient.h
+	$(CC) $(CFLAGS) -o $@ ambient_app_test.c ../main/app/ambient_app.c ../main/app/ambient.c -lm
+
 clean:
-	rm -f orb_fsm_test miniapp_test tilt_test motion_app_test wav_test config_test voice_session_test
+	rm -f orb_fsm_test miniapp_test tilt_test motion_app_test wav_test config_test voice_session_test ambient_test ambient_app_test
 
 .PHONY: test clean

@@ -149,6 +149,16 @@ esp_err_t display_render_orb(OrbState state, float phase) {
         }
     }
 
+    return display_flush();
+}
+
+uint16_t *display_framebuffer(void) {
+    return s_fb;
+}
+
+esp_err_t display_flush(void) {
+    ESP_RETURN_ON_FALSE(s_panel && s_fb, ESP_ERR_INVALID_STATE, TAG, "not initialized");
+
     // Push in horizontal bands — a single full-frame SPI transfer is too large.
     const int band = 48;  // rows per transfer: 480*48*2 = 46 KB
     for (int y = 0; y < LCD_HEIGHT; y += band) {

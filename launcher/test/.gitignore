@@ -1,1 +1,2 @@
-orb_fsm_test
+# compiled host-test binaries (make test)
+*_test
